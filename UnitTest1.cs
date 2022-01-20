@@ -15,7 +15,7 @@ namespace Funchey
     }
     public class SomeOtherExecutor
     {
-        public async Task<Item> GetItem()
+        public async virtual Task<Item> GetItem()
         {
             await Task.Delay(1000);
 
@@ -51,11 +51,12 @@ namespace Funchey
     }
     public class UnitTest
     {
+        private const string Message = "damn";
         private Mock<ICache> cacheMock = new Mock<ICache>();
         private SomeOtherExecutor someOtherExecutor = new SomeOtherExecutor();
 
         [Fact]
-        public async Task Test()
+        public async Task Returns()
         {
             Item response = null;
 
@@ -68,6 +69,24 @@ namespace Funchey
             var item = await target.GetItem();
 
             Assert.Equal(5, item.MyProperty);
+        }
+
+        [Fact]
+        public async Task Throws()
+        {
+            var someOtherExecutor = new Mock<SomeOtherExecutor>();
+
+            someOtherExecutor
+                .Setup(t => t.GetItem())
+                .ThrowsAsync(new AccessViolationException(Message));
+            this.cacheMock
+                .Setup(t => t.ResolveAsync(It.IsAny<string>(), It.IsAny<Func<Task<Item>>>()))
+                .Returns(async (string key, Func<Task<Item>> func) =>
+                { return await func(); });
+
+            var target = new Executor(this.cacheMock.Object, someOtherExecutor.Object);
+
+            await Assert.ThrowsAsync<AccessViolationException>(async () => await target.GetItem());
         }
     }
 }
